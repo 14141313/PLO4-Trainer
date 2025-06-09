@@ -20,7 +20,7 @@ const generateUniqueCards = (count: number): string[] => {
 };
 
 export default function GameScreen({ position }: { position: string }) {
-  console.log('GameScreen loaded with position:', position); // 👈 Add this line
+  console.log('GameScreen loaded with position:', position); // ✅ Add this line
 
   const holeCards = generateUniqueCards(4);
   const board1 = generateUniqueCards(5);
