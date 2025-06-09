@@ -6,12 +6,12 @@ export default function App() {
   const [position, setPosition] = useState<string | null>(null);
 
   return (
-    <>
-      {!position ? (
+    <div>
+      {position === null ? (
         <PositionSelector onSelect={(pos) => setPosition(pos)} />
       ) : (
         <GameScreen position={position} />
       )}
-    </>
+    </div>
   );
 }
