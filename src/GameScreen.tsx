@@ -20,9 +20,16 @@ const generateUniqueCards = (count: number): string[] => {
 };
 
 export default function GameScreen({ position }: { position: string }) {
+  console.log('GameScreen loaded with position:', position); // 👈 Add this line
+
   const holeCards = generateUniqueCards(4);
   const board1 = generateUniqueCards(5);
   const board2 = generateUniqueCards(5);
+
+  return (
+    <div className="min-h-screen bg-green-900 text-white p-6 flex flex-col items-center space-y-6">
+      <h1 className="text-2xl font-bold">You are in: {position}</h1>
+      ...
 
   return (
     <div className="min-h-screen bg-green-900 text-white p-6 flex flex-col items-center space-y-6">
