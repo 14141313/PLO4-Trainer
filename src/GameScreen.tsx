@@ -3,24 +3,34 @@ import React from 'react';
 const suits = ['♠️', '♥️', '♣️', '♦️'];
 const ranks = ['A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2'];
 
-const getRandomCard = () => {
-  const suit = suits[Math.floor(Math.random() * suits.length)];
-  const rank = ranks[Math.floor(Math.random() * ranks.length)];
-  return `${rank}${suit}`;
+const generateDeck = (): string[] => {
+  const deck: string[] = [];
+  for (const rank of ranks) {
+    for (const suit of suits) {
+      deck.push(`${rank}${suit}`);
+    }
+  }
+  return deck;
 };
 
-const generateUniqueCards = (count: number): string[] => {
-  const cards = new Set<string>();
-  while (cards.size < count) {
-    cards.add(getRandomCard());
+const shuffle = (array: string[]): string[] => {
+  const copy = array.slice();
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
   }
-  return Array.from(cards);
+  return copy;
 };
 
 export default function GameScreen({ position }: { position: string }) {
-  const holeCards = generateUniqueCards(4);
-  const board1 = generateUniqueCards(5);
-  const board2 = generateUniqueCards(5);
+  const { holeCards, board1, board2 } = React.useMemo(() => {
+    const deck = shuffle(generateDeck());
+    return {
+      holeCards: deck.slice(0, 4),
+      board1: deck.slice(4, 9),
+      board2: deck.slice(9, 14),
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-green-900 text-white p-6 flex flex-col items-center space-y-6">
