@@ -3,24 +3,22 @@ import React from 'react';
 const suits = ['♠️', '♥️', '♣️', '♦️'];
 const ranks = ['A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2'];
 
-const getRandomCard = () => {
-  const suit = suits[Math.floor(Math.random() * suits.length)];
-  const rank = ranks[Math.floor(Math.random() * ranks.length)];
-  return `${rank}${suit}`;
-};
-
+// Generate truly unique cards
 const generateUniqueCards = (count: number): string[] => {
   const cards = new Set<string>();
   while (cards.size < count) {
-    cards.add(getRandomCard());
+    const suit = suits[Math.floor(Math.random() * suits.length)];
+    const rank = ranks[Math.floor(Math.random() * ranks.length)];
+    cards.add(`${rank}${suit}`);
   }
   return Array.from(cards);
 };
 
 export default function GameScreen({ position }: { position: string }) {
-  const holeCards = generateUniqueCards(4);
-  const board1 = generateUniqueCards(5);
-  const board2 = generateUniqueCards(5);
+  const allCards = generateUniqueCards(14); // 4 hole + 5 + 5
+  const holeCards = allCards.slice(0, 4);
+  const board1 = allCards.slice(4, 9);
+  const board2 = allCards.slice(9, 14);
 
   return (
     <div className="min-h-screen bg-green-900 text-white p-6 flex flex-col items-center space-y-6">
