@@ -15,7 +15,7 @@ const generateUniqueCards = (count: number): string[] => {
 };
 
 export default function GameScreen({ position }: { position: string }) {
-  const allCards = generateUniqueCards(14); // 4 hole + 5 + 5
+  const allCards = generateUniqueCards(14); // Ensure 100% uniqueness
   const holeCards = allCards.slice(0, 4);
   const board1 = allCards.slice(4, 9);
   const board2 = allCards.slice(9, 14);
@@ -28,7 +28,7 @@ export default function GameScreen({ position }: { position: string }) {
         <h2 className="text-xl mb-2 font-semibold">Your Hand</h2>
         <div className="flex gap-4 text-3xl">
           {holeCards.map((card, i) => (
-            <span key={i} className="bg-white text-black px-3 py-1 rounded-xl">
+            <span key={`hole-${i}`} className="bg-white text-black px-3 py-1 rounded-xl">
               {card}
             </span>
           ))}
@@ -39,7 +39,7 @@ export default function GameScreen({ position }: { position: string }) {
         <h2 className="text-xl mt-4 mb-2 font-semibold">Board 1</h2>
         <div className="flex gap-4 text-2xl">
           {board1.map((card, i) => (
-            <span key={i} className="bg-white text-black px-3 py-1 rounded-xl">
+            <span key={`b1-${i}`} className="bg-white text-black px-3 py-1 rounded-xl">
               {card}
             </span>
           ))}
@@ -50,7 +50,7 @@ export default function GameScreen({ position }: { position: string }) {
         <h2 className="text-xl mt-4 mb-2 font-semibold">Board 2</h2>
         <div className="flex gap-4 text-2xl">
           {board2.map((card, i) => (
-            <span key={i} className="bg-white text-black px-3 py-1 rounded-xl">
+            <span key={`b2-${i}`} className="bg-white text-black px-3 py-1 rounded-xl">
               {card}
             </span>
           ))}
