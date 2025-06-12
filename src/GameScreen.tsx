@@ -29,8 +29,8 @@ type Player = {
 
 export default function GameScreen({ position }: { position: string }) {
   const [players, setPlayers] = useState<Player[]>([]);
-  const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
   const [userIndex, setUserIndex] = useState<number | null>(null);
+  const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
   const [street, setStreet] = useState<'flop' | 'turn' | 'river' | 'showdown'>('flop');
   const [board1, setBoard1] = useState<string[]>([]);
   const [board2, setBoard2] = useState<string[]>([]);
@@ -40,30 +40,34 @@ export default function GameScreen({ position }: { position: string }) {
   useEffect(() => {
     const used = new Set<string>();
     const allPositions = ['SB', 'BB', 'UTG', 'MP', 'CO', 'BTN'];
+    const userIdx = allPositions.indexOf(position);
+
     const newPlayers: Player[] = allPositions.map((name) => ({
       name,
       holeCards: generateUniqueCards(4, used),
       folded: false,
     }));
-    setUsedCards(used);
+
     setPlayers(newPlayers);
+    setUserIndex(userIdx);
+    setUsedCards(used);
     setBoard1(generateUniqueCards(5, used));
     setBoard2(generateUniqueCards(5, used));
-    setUserIndex(allPositions.indexOf(position));
-  }, []);
+  }, [position]);
 
   const isUserTurn = userIndex !== null && currentPlayerIndex === userIndex;
-  const userPlayer = userIndex !== null ? players[userIndex] : null;
 
   const handleAction = (action: 'check' | 'bet') => {
-    if (action === 'bet') {
-      const newPlayers = [...players];
-      newPlayers[currentPlayerIndex].folded = false;
-      setPlayers(newPlayers);
+    const updatedPlayers = [...players];
+    if (action === 'bet' && currentPlayerIndex !== userIndex) {
+      updatedPlayers[currentPlayerIndex].folded = true;
     }
+    setPlayers(updatedPlayers);
 
     const nextIndex = currentPlayerIndex + 1;
-    if (nextIndex >= players.length) {
+    const endOfRound = nextIndex >= players.length;
+
+    if (endOfRound) {
       if (street === 'flop') setStreet('turn');
       else if (street === 'turn') setStreet('river');
       else if (street === 'river') {
@@ -77,19 +81,17 @@ export default function GameScreen({ position }: { position: string }) {
   };
 
   const handleBotAction = () => {
-    const action = Math.random() > 0.4 ? 'bet' : 'check';
-    const newPlayers = [...players];
-    newPlayers[currentPlayerIndex].folded = action === 'bet' && Math.random() > 0.5;
-    setPlayers(newPlayers);
-    handleAction(action === 'bet' ? 'bet' : 'check');
+    const random = Math.random();
+    const action = random < 0.4 ? 'check' : 'bet';
+    handleAction(action);
   };
 
   useEffect(() => {
     if (!isUserTurn && street !== 'showdown') {
-      const timeout = setTimeout(() => handleBotAction(), 1000);
+      const timeout = setTimeout(() => handleBotAction(), 800);
       return () => clearTimeout(timeout);
     }
-  }, [currentPlayerIndex]);
+  }, [currentPlayerIndex, isUserTurn, street]);
 
   const visibleBoard = street === 'flop' ? 3 : street === 'turn' ? 4 : 5;
 
@@ -98,35 +100,20 @@ export default function GameScreen({ position }: { position: string }) {
       <h1 className="text-xl font-bold">You are in: {position}</h1>
       <h2 className="text-lg">Current Street: {street.toUpperCase()}</h2>
 
-      <div className="flex flex-col gap-4 items-center">
-        <div>
-          <h2 className="font-semibold mb-1">Board 1</h2>
-          <div className="flex gap-2 text-2xl">
-            {board1.slice(0, visibleBoard).map((card, i) => (
-              <span key={i} className="bg-white text-black px-2 py-1 rounded-lg">{card}</span>
-            ))}
-          </div>
+      <div>
+        <h3 className="mt-4 font-semibold">Board 1</h3>
+        <div className="flex gap-2 text-2xl">
+          {board1.slice(0, visibleBoard).map((card, i) => (
+            <span key={i} className="bg-white text-black px-3 py-1 rounded-lg">{card}</span>
+          ))}
         </div>
-        <div>
-          <h2 className="font-semibold mb-1">Board 2</h2>
-          <div className="flex gap-2 text-2xl">
-            {board2.slice(0, visibleBoard).map((card, i) => (
-              <span key={i} className="bg-white text-black px-2 py-1 rounded-lg">{card}</span>
-            ))}
-          </div>
+        <h3 className="mt-4 font-semibold">Board 2</h3>
+        <div className="flex gap-2 text-2xl">
+          {board2.slice(0, visibleBoard).map((card, i) => (
+            <span key={i} className="bg-white text-black px-3 py-1 rounded-lg">{card}</span>
+          ))}
         </div>
       </div>
-
-      {userPlayer && (
-        <div className="mt-4 text-center">
-          <h2 className="font-semibold mb-1">Your Hand</h2>
-          <div className="flex gap-2 text-2xl">
-            {userPlayer.holeCards.map((card, i) => (
-              <span key={i} className="bg-white text-black px-3 py-1 rounded-lg">{card}</span>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="mt-6">
         <h2 className="text-lg font-semibold mb-2">Players</h2>
@@ -148,6 +135,17 @@ export default function GameScreen({ position }: { position: string }) {
         </div>
       </div>
 
+      {userIndex !== null && players[userIndex] && (
+        <div className="mt-4 text-center">
+          <h2 className="font-semibold mb-1">Your Hand</h2>
+          <div className="flex gap-2 text-2xl">
+            {players[userIndex].holeCards.map((card, i) => (
+              <span key={i} className="bg-white text-black px-3 py-1 rounded-lg">{card}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {street !== 'showdown' && isUserTurn && (
         <div className="flex gap-4 mt-6">
           <button onClick={() => handleAction('check')} className="px-4 py-2 bg-blue-500 rounded-md">
@@ -160,9 +158,9 @@ export default function GameScreen({ position }: { position: string }) {
       )}
 
       {showResult && (
-        <div className="mt-6 bg-black bg-opacity-50 p-4 rounded-xl">
-          <h2 className="text-lg font-bold mb-2">Showdown Results</h2>
-          <p className="text-sm">(Winner logic will be added soon)</p>
+        <div className="mt-6 bg-black bg-opacity-40 p-4 rounded-xl">
+          <h2 className="text-lg font-bold">Showdown Results</h2>
+          <p className="text-sm italic text-gray-300">(Scoring logic to be added)</p>
         </div>
       )}
     </div>
