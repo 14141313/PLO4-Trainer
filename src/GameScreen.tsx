@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 const suits = ['♠️', '♥️', '♣️', '♦️'];
 const ranks = ['A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2'];
@@ -18,18 +18,47 @@ const generateUniqueCards = (count: number): string[] => {
 };
 
 export default function GameScreen({ position }: { position: string }) {
-  const holeCards = generateUniqueCards(4);
-  const board1 = generateUniqueCards(5);
-  const board2 = generateUniqueCards(5);
+  const [pot, setPot] = useState(30); // 6 x $5 antes
+  const [playerHasActed, setPlayerHasActed] = useState(false);
+  const [playerHand] = useState(generateUniqueCards(4));
+  const [opponentHands] = useState(
+    Array.from({ length: 5 }, () => generateUniqueCards(4))
+  );
+  const [board1] = useState(generateUniqueCards(5));
+  const [board2] = useState(generateUniqueCards(5));
+  const [opponentActions, setOpponentActions] = useState<string[]>([]);
+
+  const handlePlayerAction = (action: 'check' | 'bet') => {
+    let newPot = pot;
+
+    if (action === 'bet') {
+      newPot += 30; // you bet the pot
+      const actions = opponentHands.map(() => {
+        const rand = Math.random();
+        if (rand < 0.4) return 'fold';
+        else return 'call';
+      });
+
+      const calls = actions.filter(a => a === 'call').length;
+      newPot += calls * 30;
+      setOpponentActions(actions);
+    } else {
+      setOpponentActions(Array(5).fill('check'));
+    }
+
+    setPot(newPot);
+    setPlayerHasActed(true);
+  };
 
   return (
     <div className="min-h-screen bg-green-900 text-white p-6 flex flex-col items-center space-y-6">
       <h1 className="text-2xl font-bold">You are in: {position}</h1>
+      <div className="text-xl">💰 Pot: ${pot}</div>
 
       <div>
         <h2 className="text-xl mb-2 font-semibold">Your Hand</h2>
         <div className="flex gap-4 text-3xl">
-          {holeCards.map((card, i) => (
+          {playerHand.map((card, i) => (
             <span key={i} className="bg-white text-black px-3 py-1 rounded-xl">
               {card}
             </span>
@@ -58,6 +87,26 @@ export default function GameScreen({ position }: { position: string }) {
           ))}
         </div>
       </div>
+
+      {!playerHasActed ? (
+        <div className="flex gap-4 mt-6">
+          <button onClick={() => handlePlayerAction('check')} className="px-4 py-2 bg-blue-600 rounded">
+            Check
+          </button>
+          <button onClick={() => handlePlayerAction('bet')} className="px-4 py-2 bg-red-600 rounded">
+            Bet Pot
+          </button>
+        </div>
+      ) : (
+        <div className="mt-6">
+          <h2 className="text-lg font-semibold mb-2">Opponent Reactions:</h2>
+          <ul className="space-y-1">
+            {opponentActions.map((action, i) => (
+              <li key={i}>Opponent {i + 1}: {action.toUpperCase()}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
