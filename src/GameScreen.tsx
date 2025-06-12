@@ -18,47 +18,37 @@ const generateUniqueCards = (count: number): string[] => {
 };
 
 export default function GameScreen({ position }: { position: string }) {
-  const [pot, setPot] = useState(30); // 6 x $5 antes
-  const [playerHasActed, setPlayerHasActed] = useState(false);
-  const [playerHand] = useState(generateUniqueCards(4));
-  const [opponentHands] = useState(
-    Array.from({ length: 5 }, () => generateUniqueCards(4))
-  );
-  const [board1] = useState(generateUniqueCards(5));
-  const [board2] = useState(generateUniqueCards(5));
-  const [opponentActions, setOpponentActions] = useState<string[]>([]);
+  const [stage, setStage] = useState<'flop' | 'turn' | 'river' | 'showdown'>('flop');
+  const [actions, setActions] = useState<string[]>([]);
 
-  const handlePlayerAction = (action: 'check' | 'bet') => {
-    let newPot = pot;
+  const holeCards = generateUniqueCards(4);
+  const board1 = generateUniqueCards(5);
+  const board2 = generateUniqueCards(5);
 
-    if (action === 'bet') {
-      newPot += 30; // you bet the pot
-      const actions = opponentHands.map(() => {
-        const rand = Math.random();
-        if (rand < 0.4) return 'fold';
-        else return 'call';
-      });
+  const displayedBoard1 =
+    stage === 'flop' ? board1.slice(0, 3) : stage === 'turn' ? board1.slice(0, 4) : board1;
+  const displayedBoard2 =
+    stage === 'flop' ? board2.slice(0, 3) : stage === 'turn' ? board2.slice(0, 4) : board2;
 
-      const calls = actions.filter(a => a === 'call').length;
-      newPot += calls * 30;
-      setOpponentActions(actions);
-    } else {
-      setOpponentActions(Array(5).fill('check'));
-    }
+  const nextStage = () => {
+    if (stage === 'flop') setStage('turn');
+    else if (stage === 'turn') setStage('river');
+    else if (stage === 'river') setStage('showdown');
+  };
 
-    setPot(newPot);
-    setPlayerHasActed(true);
+  const handleAction = (action: string) => {
+    setActions([...actions, action]);
+    nextStage();
   };
 
   return (
     <div className="min-h-screen bg-green-900 text-white p-6 flex flex-col items-center space-y-6">
       <h1 className="text-2xl font-bold">You are in: {position}</h1>
-      <div className="text-xl">💰 Pot: ${pot}</div>
 
       <div>
         <h2 className="text-xl mb-2 font-semibold">Your Hand</h2>
         <div className="flex gap-4 text-3xl">
-          {playerHand.map((card, i) => (
+          {holeCards.map((card, i) => (
             <span key={i} className="bg-white text-black px-3 py-1 rounded-xl">
               {card}
             </span>
@@ -69,7 +59,7 @@ export default function GameScreen({ position }: { position: string }) {
       <div>
         <h2 className="text-xl mt-4 mb-2 font-semibold">Board 1</h2>
         <div className="flex gap-4 text-2xl">
-          {board1.map((card, i) => (
+          {displayedBoard1.map((card, i) => (
             <span key={i} className="bg-white text-black px-3 py-1 rounded-xl">
               {card}
             </span>
@@ -80,7 +70,7 @@ export default function GameScreen({ position }: { position: string }) {
       <div>
         <h2 className="text-xl mt-4 mb-2 font-semibold">Board 2</h2>
         <div className="flex gap-4 text-2xl">
-          {board2.map((card, i) => (
+          {displayedBoard2.map((card, i) => (
             <span key={i} className="bg-white text-black px-3 py-1 rounded-xl">
               {card}
             </span>
@@ -88,24 +78,25 @@ export default function GameScreen({ position }: { position: string }) {
         </div>
       </div>
 
-      {!playerHasActed ? (
-        <div className="flex gap-4 mt-6">
-          <button onClick={() => handlePlayerAction('check')} className="px-4 py-2 bg-blue-600 rounded">
+      {stage !== 'showdown' && (
+        <div className="mt-6 flex gap-4">
+          <button
+            onClick={() => handleAction('check')}
+            className="px-6 py-2 bg-blue-500 rounded-xl text-white font-semibold hover:bg-blue-600"
+          >
             Check
           </button>
-          <button onClick={() => handlePlayerAction('bet')} className="px-4 py-2 bg-red-600 rounded">
-            Bet Pot
+          <button
+            onClick={() => handleAction('bet')}
+            className="px-6 py-2 bg-yellow-500 rounded-xl text-black font-semibold hover:bg-yellow-600"
+          >
+            Bet
           </button>
         </div>
-      ) : (
-        <div className="mt-6">
-          <h2 className="text-lg font-semibold mb-2">Opponent Reactions:</h2>
-          <ul className="space-y-1">
-            {opponentActions.map((action, i) => (
-              <li key={i}>Opponent {i + 1}: {action.toUpperCase()}</li>
-            ))}
-          </ul>
-        </div>
+      )}
+
+      {stage === 'showdown' && (
+        <div className="mt-6 text-lg font-semibold">Showdown reached. Actions taken: {actions.join(', ')}</div>
       )}
     </div>
   );
