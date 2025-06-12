@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 
 const suits = ['♠️', '♥️', '♣️', '♦️'];
 const ranks = ['A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2'];
-const positions = ['SB', 'BB', 'EP', 'MP', 'HJ', 'CO'];
 
 const getRandomCard = () => {
   const suit = suits[Math.floor(Math.random() * suits.length)];
@@ -22,117 +21,161 @@ const generateUniqueCards = (count: number, exclude: Set<string>): string[] => {
   return Array.from(cards);
 };
 
-interface Player {
-  name: string;
-  position: string;
-  holeCards: string[];
-  isUser: boolean;
-  inHand: boolean;
-}
+const evaluateHand = (hole: string[], board: string[]): number => {
+  return Math.floor(Math.random() * 100); // placeholder strength
+};
 
 export default function GameScreen({ position }: { position: string }) {
-  const [players, setPlayers] = useState<Player[]>([]);
+  const [holeCards, setHoleCards] = useState<string[]>([]);
   const [board1, setBoard1] = useState<string[]>([]);
   const [board2, setBoard2] = useState<string[]>([]);
+  const [bots, setBots] = useState<{ cards: string[]; active: boolean }[]>([]);
   const [street, setStreet] = useState<'flop' | 'turn' | 'river' | 'showdown'>('flop');
-  const [showResults, setShowResults] = useState(false);
-  const [excludedCards] = useState(new Set<string>());
 
   useEffect(() => {
-    const generatedPlayers: Player[] = positions.map((pos) => {
-      const isUser = pos === position;
-      const holeCards = generateUniqueCards(4, excludedCards);
-      return {
-        name: isUser ? 'You' : `Bot (${pos})`,
-        position: pos,
-        holeCards,
-        isUser,
-        inHand: true,
-      };
-    });
+    const used = new Set<string>();
+    const playerHole = generateUniqueCards(4, used);
+    const flop1 = generateUniqueCards(3, used);
+    const flop2 = generateUniqueCards(3, used);
+    const botArray = Array.from({ length: 5 }, () => ({
+      cards: generateUniqueCards(4, used),
+      active: true,
+    }));
 
-    const boardCards1 = generateUniqueCards(5, excludedCards);
-    const boardCards2 = generateUniqueCards(5, excludedCards);
-
-    setPlayers(generatedPlayers);
-    setBoard1(boardCards1);
-    setBoard2(boardCards2);
-  }, [position]);
+    setHoleCards(playerHole);
+    setBoard1(flop1);
+    setBoard2(flop2);
+    setBots(botArray);
+  }, []);
 
   useEffect(() => {
-    if (street === 'river') {
-      const timeout = setTimeout(() => {
+    if (street === 'flop') {
+      setTimeout(() => {
+        const updatedBots = bots.map((bot) => ({
+          ...bot,
+          active: Math.random() > 0.3,
+        }));
+        setBots(updatedBots);
+        setBoard1((prev) => [...prev, ...generateUniqueCards(1, new Set([...prev, ...holeCards]))]);
+        setBoard2((prev) => [...prev, ...generateUniqueCards(1, new Set([...prev, ...holeCards]))]);
+        setStreet('turn');
+      }, 1500);
+    } else if (street === 'turn') {
+      setTimeout(() => {
+        const updatedBots = bots.map((bot) => ({
+          ...bot,
+          active: bot.active && Math.random() > 0.3,
+        }));
+        setBots(updatedBots);
+        setBoard1((prev) => [...prev, ...generateUniqueCards(1, new Set([...prev, ...holeCards]))]);
+        setBoard2((prev) => [...prev, ...generateUniqueCards(1, new Set([...prev, ...holeCards]))]);
+        setStreet('river');
+      }, 1500);
+    } else if (street === 'river') {
+      setTimeout(() => {
+        const updatedBots = bots.map((bot) => ({
+          ...bot,
+          active: bot.active && Math.random() > 0.2,
+        }));
+        setBots(updatedBots);
         setStreet('showdown');
-        setShowResults(true);
-      }, 2000);
-      return () => clearTimeout(timeout);
+      }, 1500);
     }
   }, [street]);
 
-  const nextStreet = () => {
-    if (street === 'flop') setStreet('turn');
-    else if (street === 'turn') setStreet('river');
-  };
+  const getWinnerText = () => {
+    const player1 = evaluateHand(holeCards, board1);
+    const player2 = evaluateHand(holeCards, board2);
 
-  const visibleCards = (cards: string[], count: number) => cards.slice(0, count);
-  const streetCardCount = street === 'flop' ? 3 : street === 'turn' ? 4 : 5;
+    const botScores = bots.map((bot) => {
+      if (!bot.active) return { b1: -1, b2: -1 };
+      return {
+        b1: evaluateHand(bot.cards, board1),
+        b2: evaluateHand(bot.cards, board2),
+      };
+    });
+
+    const allScores1 = [player1, ...botScores.map((s) => s.b1)];
+    const allScores2 = [player2, ...botScores.map((s) => s.b2)];
+
+    const max1 = Math.max(...allScores1);
+    const max2 = Math.max(...allScores2);
+
+    const winners1 = [0, ...botScores.map((s, i) => s.b1 === max1 ? i + 1 : -1).filter((i) => i > 0)];
+    const winners2 = [0, ...botScores.map((s, i) => s.b2 === max2 ? i + 1 : -1).filter((i) => i > 0)];
+
+    const renderNames = (winners: number[]) => {
+      return winners.map((i) => (i === 0 ? 'You' : `Bot ${i}`)).join(', ');
+    };
+
+    return (
+      <>
+        <p className="mt-4">Board 1 Winner(s): {renderNames(winners1)}</p>
+        <p className="mt-1">Board 2 Winner(s): {renderNames(winners2)}</p>
+      </>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-green-900 text-white p-6 flex flex-col items-center space-y-6">
       <h1 className="text-2xl font-bold">You are in: {position}</h1>
 
       <div>
-        <h2 className="text-xl font-semibold mb-2">Board 1</h2>
-        <div className="flex gap-2 text-2xl">
-          {visibleCards(board1, streetCardCount).map((card, i) => (
+        <h2 className="text-xl mb-2 font-semibold">Your Hand</h2>
+        <div className="flex gap-4 text-3xl">
+          {holeCards.map((card, i) => (
+            <span key={i} className="bg-white text-black px-3 py-1 rounded-xl">
+              {card}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-xl mt-4 mb-2 font-semibold">Board 1</h2>
+        <div className="flex gap-4 text-2xl">
+          {board1.map((card, i) => (
             <span key={i} className="bg-white text-black px-3 py-1 rounded-xl">{card}</span>
           ))}
         </div>
       </div>
 
       <div>
-        <h2 className="text-xl font-semibold mb-2">Board 2</h2>
-        <div className="flex gap-2 text-2xl">
-          {visibleCards(board2, streetCardCount).map((card, i) => (
+        <h2 className="text-xl mt-4 mb-2 font-semibold">Board 2</h2>
+        <div className="flex gap-4 text-2xl">
+          {board2.map((card, i) => (
             <span key={i} className="bg-white text-black px-3 py-1 rounded-xl">{card}</span>
           ))}
         </div>
       </div>
 
-      <div>
-        <h2 className="text-xl font-semibold mb-2">Players</h2>
-        <div className="grid grid-cols-2 gap-4">
-          {players.map((p, idx) => (
-            <div key={idx} className="p-3 bg-black rounded-lg border border-white">
-              <p className="font-bold">{p.name}</p>
-              {p.isUser || showResults ? (
-                <div className="flex gap-2 mt-1">
-                  {p.holeCards.map((card, i) => (
-                    <span key={i} className="bg-white text-black px-2 py-1 rounded">{card}</span>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-400 italic mt-1">Hidden</p>
-              )}
+      {street === 'showdown' && (
+        <>
+          <h2 className="text-xl mt-6 font-bold">Showdown</h2>
+          <div className="flex flex-col gap-2 items-center">
+            <p className="text-lg font-semibold">Your Hand:</p>
+            <div className="flex gap-2 text-2xl">
+              {holeCards.map((card, i) => (
+                <span key={i} className="bg-white text-black px-2 py-1 rounded-md">{card}</span>
+              ))}
             </div>
-          ))}
-        </div>
-      </div>
-
-      {street !== 'showdown' && (
-        <button
-          onClick={nextStreet}
-          className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold px-4 py-2 rounded"
-        >
-          Continue
-        </button>
-      )}
-
-      {showResults && (
-        <div className="mt-6 text-center">
-          <h2 className="text-xl font-bold mb-2">Showdown!</h2>
-          <p className="italic">(Hand scoring logic will go here)</p>
-        </div>
+            {bots.map((bot, i) => (
+              <div key={i} className="flex flex-col items-center">
+                <p className="mt-2 font-medium">Bot {i + 1}:</p>
+                {bot.active ? (
+                  <div className="flex gap-2 text-2xl">
+                    {bot.cards.map((card, j) => (
+                      <span key={j} className="bg-white text-black px-2 py-1 rounded-md">{card}</span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm italic">(Folded)</p>
+                )}
+              </div>
+            ))}
+          </div>
+          {getWinnerText()}
+        </>
       )}
     </div>
   );
