@@ -30,6 +30,7 @@ type Player = {
 export default function GameScreen({ position }: { position: string }) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
+  const [userIndex, setUserIndex] = useState<number | null>(null);
   const [street, setStreet] = useState<'flop' | 'turn' | 'river' | 'showdown'>('flop');
   const [board1, setBoard1] = useState<string[]>([]);
   const [board2, setBoard2] = useState<string[]>([]);
@@ -38,7 +39,8 @@ export default function GameScreen({ position }: { position: string }) {
 
   useEffect(() => {
     const used = new Set<string>();
-    const newPlayers: Player[] = ['SB', 'BB', 'UTG', 'MP', 'CO', 'BTN'].map((name) => ({
+    const allPositions = ['SB', 'BB', 'UTG', 'MP', 'CO', 'BTN'];
+    const newPlayers: Player[] = allPositions.map((name) => ({
       name,
       holeCards: generateUniqueCards(4, used),
       folded: false,
@@ -47,12 +49,13 @@ export default function GameScreen({ position }: { position: string }) {
     setPlayers(newPlayers);
     setBoard1(generateUniqueCards(5, used));
     setBoard2(generateUniqueCards(5, used));
+    setUserIndex(allPositions.indexOf(position));
   }, []);
 
-  const isUserTurn = players[currentPlayerIndex]?.name === position;
+  const isUserTurn = userIndex !== null && currentPlayerIndex === userIndex;
+  const userPlayer = userIndex !== null ? players[userIndex] : null;
 
   const handleAction = (action: 'check' | 'bet') => {
-    // Simple fold logic: bots fold randomly
     if (action === 'bet') {
       const newPlayers = [...players];
       newPlayers[currentPlayerIndex].folded = false;
@@ -61,7 +64,6 @@ export default function GameScreen({ position }: { position: string }) {
 
     const nextIndex = currentPlayerIndex + 1;
     if (nextIndex >= players.length) {
-      // Move to next street
       if (street === 'flop') setStreet('turn');
       else if (street === 'turn') setStreet('river');
       else if (street === 'river') {
@@ -76,24 +78,20 @@ export default function GameScreen({ position }: { position: string }) {
 
   const handleBotAction = () => {
     const action = Math.random() > 0.4 ? 'bet' : 'check';
-    if (action === 'check') {
-      handleAction('check');
-    } else {
-      const newPlayers = [...players];
-      newPlayers[currentPlayerIndex].folded = Math.random() > 0.5;
-      setPlayers(newPlayers);
-      handleAction('bet');
-    }
+    const newPlayers = [...players];
+    newPlayers[currentPlayerIndex].folded = action === 'bet' && Math.random() > 0.5;
+    setPlayers(newPlayers);
+    handleAction(action === 'bet' ? 'bet' : 'check');
   };
 
   useEffect(() => {
     if (!isUserTurn && street !== 'showdown') {
-      setTimeout(() => handleBotAction(), 1000);
+      const timeout = setTimeout(() => handleBotAction(), 1000);
+      return () => clearTimeout(timeout);
     }
   }, [currentPlayerIndex]);
 
-  const visibleBoard =
-    street === 'flop' ? 3 : street === 'turn' ? 4 : street === 'river' ? 5 : 5;
+  const visibleBoard = street === 'flop' ? 3 : street === 'turn' ? 4 : 5;
 
   return (
     <div className="min-h-screen bg-green-900 text-white p-6 flex flex-col items-center space-y-4">
@@ -105,24 +103,30 @@ export default function GameScreen({ position }: { position: string }) {
           <h2 className="font-semibold mb-1">Board 1</h2>
           <div className="flex gap-2 text-2xl">
             {board1.slice(0, visibleBoard).map((card, i) => (
-              <span key={i} className="bg-white text-black px-2 py-1 rounded-lg">
-                {card}
-              </span>
+              <span key={i} className="bg-white text-black px-2 py-1 rounded-lg">{card}</span>
             ))}
           </div>
         </div>
-
         <div>
           <h2 className="font-semibold mb-1">Board 2</h2>
           <div className="flex gap-2 text-2xl">
             {board2.slice(0, visibleBoard).map((card, i) => (
-              <span key={i} className="bg-white text-black px-2 py-1 rounded-lg">
-                {card}
-              </span>
+              <span key={i} className="bg-white text-black px-2 py-1 rounded-lg">{card}</span>
             ))}
           </div>
         </div>
       </div>
+
+      {userPlayer && (
+        <div className="mt-4 text-center">
+          <h2 className="font-semibold mb-1">Your Hand</h2>
+          <div className="flex gap-2 text-2xl">
+            {userPlayer.holeCards.map((card, i) => (
+              <span key={i} className="bg-white text-black px-3 py-1 rounded-lg">{card}</span>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mt-6">
         <h2 className="text-lg font-semibold mb-2">Players</h2>
@@ -133,9 +137,7 @@ export default function GameScreen({ position }: { position: string }) {
               {street === 'showdown' && !p.folded ? (
                 <div className="flex gap-1 justify-center mt-1">
                   {p.holeCards.map((c, j) => (
-                    <span key={j} className="bg-white text-black px-2 py-1 rounded-md">
-                      {c}
-                    </span>
+                    <span key={j} className="bg-white text-black px-2 py-1 rounded-md">{c}</span>
                   ))}
                 </div>
               ) : (
@@ -148,16 +150,10 @@ export default function GameScreen({ position }: { position: string }) {
 
       {street !== 'showdown' && isUserTurn && (
         <div className="flex gap-4 mt-6">
-          <button
-            onClick={() => handleAction('check')}
-            className="px-4 py-2 bg-blue-500 rounded-md"
-          >
+          <button onClick={() => handleAction('check')} className="px-4 py-2 bg-blue-500 rounded-md">
             Check
           </button>
-          <button
-            onClick={() => handleAction('bet')}
-            className="px-4 py-2 bg-red-500 rounded-md"
-          >
+          <button onClick={() => handleAction('bet')} className="px-4 py-2 bg-red-500 rounded-md">
             Bet
           </button>
         </div>
