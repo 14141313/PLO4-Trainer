@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 
 const suits = ['♠️', '♥️', '♣️', '♦️'];
 const ranks = ['A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2'];
-
 const positions = ['SB', 'BB', 'EP', 'MP', 'HJ', 'CO'];
 
 const getRandomCard = () => {
@@ -11,131 +10,128 @@ const getRandomCard = () => {
   return `${rank}${suit}`;
 };
 
-const generateUniqueCards = (count: number): string[] => {
+const generateUniqueCards = (count: number, exclude: Set<string>): string[] => {
   const cards = new Set<string>();
   while (cards.size < count) {
-    cards.add(getRandomCard());
+    const card = getRandomCard();
+    if (!exclude.has(card)) {
+      cards.add(card);
+      exclude.add(card);
+    }
   }
   return Array.from(cards);
 };
 
-type Street = 'flop' | 'turn' | 'river' | 'showdown';
+interface Player {
+  name: string;
+  position: string;
+  holeCards: string[];
+  isUser: boolean;
+  inHand: boolean;
+}
 
 export default function GameScreen({ position }: { position: string }) {
-  const [holeCards] = useState(generateUniqueCards(4));
-  const [board1] = useState(generateUniqueCards(5));
-  const [board2] = useState(generateUniqueCards(5));
-
-  const [street, setStreet] = useState<Street>('flop');
-  const [activePlayers, setActivePlayers] = useState<string[]>(positions.filter((p) => p !== position));
-  const [foldedPlayers, setFoldedPlayers] = useState<string[]>([]);
-  const [userHasActed, setUserHasActed] = useState(false);
-
-  const handleUserAction = () => {
-    setUserHasActed(true);
-  };
-
-  const simulateBotActions = () => {
-    const remaining = [];
-    for (let pos of positions) {
-      if (pos === position) continue;
-      if (Math.random() < 0.3) {
-        setFoldedPlayers((prev) => [...prev, pos]);
-      } else {
-        remaining.push(pos);
-      }
-    }
-    setActivePlayers(remaining);
-  };
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [board1, setBoard1] = useState<string[]>([]);
+  const [board2, setBoard2] = useState<string[]>([]);
+  const [street, setStreet] = useState<'flop' | 'turn' | 'river' | 'showdown'>('flop');
+  const [showResults, setShowResults] = useState(false);
+  const [excludedCards] = useState(new Set<string>());
 
   useEffect(() => {
-    if (userHasActed && street !== 'showdown') {
-      simulateBotActions();
-      const delay = 1000;
-      setTimeout(() => {
-        if (street === 'flop') setStreet('turn');
-        else if (street === 'turn') setStreet('river');
-        else setStreet('showdown');
-        setUserHasActed(false);
-      }, delay);
-    }
-  }, [userHasActed]);
+    const generatedPlayers: Player[] = positions.map((pos) => {
+      const isUser = pos === position;
+      const holeCards = generateUniqueCards(4, excludedCards);
+      return {
+        name: isUser ? 'You' : `Bot (${pos})`,
+        position: pos,
+        holeCards,
+        isUser,
+        inHand: true,
+      };
+    });
 
-  const renderBoard = () => {
-    const boardLength = street === 'flop' ? 3 : street === 'turn' ? 4 : 5;
-    return (
-      <>
-        <div className="mt-4">
-          <h2 className="text-xl font-semibold mb-2">Board 1</h2>
-          <div className="flex gap-3 text-2xl">
-            {board1.slice(0, boardLength).map((card, i) => (
-              <span key={i} className="bg-white text-black px-3 py-1 rounded-xl">
-                {card}
-              </span>
-            ))}
-          </div>
-        </div>
-        <div className="mt-4">
-          <h2 className="text-xl font-semibold mb-2">Board 2</h2>
-          <div className="flex gap-3 text-2xl">
-            {board2.slice(0, boardLength).map((card, i) => (
-              <span key={i} className="bg-white text-black px-3 py-1 rounded-xl">
-                {card}
-              </span>
-            ))}
-          </div>
-        </div>
-      </>
-    );
+    const boardCards1 = generateUniqueCards(5, excludedCards);
+    const boardCards2 = generateUniqueCards(5, excludedCards);
+
+    setPlayers(generatedPlayers);
+    setBoard1(boardCards1);
+    setBoard2(boardCards2);
+  }, [position]);
+
+  useEffect(() => {
+    if (street === 'river') {
+      const timeout = setTimeout(() => {
+        setStreet('showdown');
+        setShowResults(true);
+      }, 2000);
+      return () => clearTimeout(timeout);
+    }
+  }, [street]);
+
+  const nextStreet = () => {
+    if (street === 'flop') setStreet('turn');
+    else if (street === 'turn') setStreet('river');
   };
+
+  const visibleCards = (cards: string[], count: number) => cards.slice(0, count);
+  const streetCardCount = street === 'flop' ? 3 : street === 'turn' ? 4 : 5;
 
   return (
     <div className="min-h-screen bg-green-900 text-white p-6 flex flex-col items-center space-y-6">
       <h1 className="text-2xl font-bold">You are in: {position}</h1>
 
       <div>
-        <h2 className="text-xl font-semibold mb-2">Your Hand</h2>
-        <div className="flex gap-3 text-3xl">
-          {holeCards.map((card, i) => (
-            <span key={i} className="bg-white text-black px-3 py-1 rounded-xl">
-              {card}
-            </span>
+        <h2 className="text-xl font-semibold mb-2">Board 1</h2>
+        <div className="flex gap-2 text-2xl">
+          {visibleCards(board1, streetCardCount).map((card, i) => (
+            <span key={i} className="bg-white text-black px-3 py-1 rounded-xl">{card}</span>
           ))}
         </div>
       </div>
 
-      {renderBoard()}
-
-      {street !== 'showdown' && !userHasActed && (
-        <div className="mt-6">
-          <h3 className="text-lg mb-2">Your Action</h3>
-          <div className="flex gap-4">
-            <button
-              onClick={handleUserAction}
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-white"
-            >
-              Check
-            </button>
-            <button
-              onClick={handleUserAction}
-              className="px-6 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-xl text-white"
-            >
-              Bet Pot
-            </button>
-          </div>
+      <div>
+        <h2 className="text-xl font-semibold mb-2">Board 2</h2>
+        <div className="flex gap-2 text-2xl">
+          {visibleCards(board2, streetCardCount).map((card, i) => (
+            <span key={i} className="bg-white text-black px-3 py-1 rounded-xl">{card}</span>
+          ))}
         </div>
+      </div>
+
+      <div>
+        <h2 className="text-xl font-semibold mb-2">Players</h2>
+        <div className="grid grid-cols-2 gap-4">
+          {players.map((p, idx) => (
+            <div key={idx} className="p-3 bg-black rounded-lg border border-white">
+              <p className="font-bold">{p.name}</p>
+              {p.isUser || showResults ? (
+                <div className="flex gap-2 mt-1">
+                  {p.holeCards.map((card, i) => (
+                    <span key={i} className="bg-white text-black px-2 py-1 rounded">{card}</span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-400 italic mt-1">Hidden</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {street !== 'showdown' && (
+        <button
+          onClick={nextStreet}
+          className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold px-4 py-2 rounded"
+        >
+          Continue
+        </button>
       )}
 
-      {street !== 'flop' && (
-        <div className="mt-6 text-lg">
-          <p>Players Remaining: {activePlayers.length + 1}</p>
-          <p>Folded: {foldedPlayers.join(', ') || 'None'}</p>
-        </div>
-      )}
-
-      {street === 'showdown' && (
-        <div className="mt-6 text-xl font-bold">
-          <p>Showdown! (Mock equity results to be added)</p>
+      {showResults && (
+        <div className="mt-6 text-center">
+          <h2 className="text-xl font-bold mb-2">Showdown!</h2>
+          <p className="italic">(Hand scoring logic will go here)</p>
         </div>
       )}
     </div>
