@@ -4,39 +4,44 @@ const suits = ['♠️', '♥️', '♣️', '♦️'];
 const ranks = ['A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2'];
 const positions = ['SB', 'BB', 'EP', 'MP', 'HJ', 'CO'];
 
-const getRandomCard = () => {
-  const suit = suits[Math.floor(Math.random() * suits.length)];
-  const rank = ranks[Math.floor(Math.random() * ranks.length)];
-  return `${rank}${suit}`;
-};
-
-const generateUniqueCards = (count: number): string[] => {
-  const cards = new Set<string>();
-  while (cards.size < count) {
-    cards.add(getRandomCard());
-  }
-  return Array.from(cards);
-};
-
 type Street = 'flop' | 'turn' | 'river' | 'showdown';
 
-export default function GameScreen({ position }: { position: string }) {
-  const [holeCards] = useState(generateUniqueCards(4));
-  const [board1] = useState(generateUniqueCards(5));
-  const [board2] = useState(generateUniqueCards(5));
+const createDeck = (): string[] => {
+  const deck: string[] = [];
+  for (let suit of suits) {
+    for (let rank of ranks) {
+      deck.push(`${rank}${suit}`);
+    }
+  }
+  return deck.sort(() => Math.random() - 0.5); // Shuffle
+};
 
+export default function GameScreen({ position }: { position: string }) {
+  const [deck] = useState(createDeck());
+  const [holeCards, setHoleCards] = useState<string[]>([]);
+  const [board1, setBoard1] = useState<string[]>([]);
+  const [board2, setBoard2] = useState<string[]>([]);
   const [street, setStreet] = useState<Street>('flop');
   const [activePlayers, setActivePlayers] = useState<string[]>(positions.filter(p => p !== position));
   const [foldedPlayers, setFoldedPlayers] = useState<string[]>([]);
   const [userHasActed, setUserHasActed] = useState(false);
   const [mockResults, setMockResults] = useState<{ board1: string; board2: string }>({ board1: '', board2: '' });
 
-  const handleUserAction = () => {
-    setUserHasActed(true);
-  };
+  // Deal cards from deck without duplicates
+  useEffect(() => {
+    const deckCopy = [...deck];
+    const hand = deckCopy.splice(0, 4);
+    const b1 = deckCopy.splice(0, 5);
+    const b2 = deckCopy.splice(0, 5);
+    setHoleCards(hand);
+    setBoard1(b1);
+    setBoard2(b2);
+  }, [deck]);
+
+  const handleUserAction = () => setUserHasActed(true);
 
   const simulateBotActions = () => {
-    const remaining = [];
+    const remaining: string[] = [];
     for (let pos of positions) {
       if (pos === position) continue;
       if (Math.random() < 0.3) {
@@ -99,22 +104,19 @@ export default function GameScreen({ position }: { position: string }) {
   };
 
   const renderPlayers = () => {
+    const allPlayers = [position, ...activePlayers, ...foldedPlayers.filter(p => p !== position && !activePlayers.includes(p))];
     return (
       <div className="mt-6">
         <h3 className="text-lg font-semibold mb-2">Players</h3>
         <ul className="space-y-1">
-          {[position, ...activePlayers, ...foldedPlayers.filter(p => !activePlayers.includes(p) && p !== position)].map((pos) => (
-            <li key={pos} className="text-white">
-              {pos} - 
-              {pos === position ? (
+          {allPlayers.map(pos => (
+            <li key={pos}>
+              {pos} – {pos === position ? (
                 <>
-                  {' '}You{' '}
-                  <span className="ml-2 text-gray-300">
-                    [{holeCards.join(', ')}]
-                  </span>
+                  You <span className="ml-2 text-gray-300">[{holeCards.join(', ')}]</span>
                 </>
               ) : foldedPlayers.includes(pos) ? (
-                ' Folded'
+                'Folded'
               ) : (
                 <span className="ml-2 text-gray-300">[??, ??, ??, ??]</span>
               )}
