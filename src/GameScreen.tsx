@@ -5,8 +5,8 @@ const ranks = ['A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2'];
 
 const positions = ['SB', 'BB', 'EP', 'MP', 'HJ', 'CO'];
 
-const generateDeck = (): string[] => {
-  const deck: string[] = [];
+const createDeck = () => {
+  const deck = [];
   for (let suit of suits) {
     for (let rank of ranks) {
       deck.push(`${rank}${suit}`);
@@ -15,75 +15,85 @@ const generateDeck = (): string[] => {
   return deck;
 };
 
-const drawCards = (deck: string[], count: number): [string[], string[]] => {
-  const hand: string[] = [];
-  while (hand.length < count && deck.length > 0) {
-    const index = Math.floor(Math.random() * deck.length);
-    hand.push(deck[index]);
-    deck.splice(index, 1);
+const shuffle = (deck: string[]) => {
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
   }
-  return [hand, deck];
+  return deck;
+};
+
+const dealCards = (deck: string[], count: number): [string[], string[]] => {
+  const dealt = deck.slice(0, count);
+  const remaining = deck.slice(count);
+  return [dealt, remaining];
 };
 
 type Street = 'flop' | 'turn' | 'river' | 'showdown';
 
-type Player = {
-  position: string;
-  cards: string[];
-  hasFolded: boolean;
-};
-
 export default function GameScreen({ position }: { position: string }) {
-  const [deck, setDeck] = useState(generateDeck());
+  const [deck, setDeck] = useState(shuffle(createDeck()));
   const [holeCards, setHoleCards] = useState<string[]>([]);
   const [board1, setBoard1] = useState<string[]>([]);
   const [board2, setBoard2] = useState<string[]>([]);
   const [street, setStreet] = useState<Street>('flop');
-  const [players, setPlayers] = useState<Player[]>([]);
+  const [activePlayers, setActivePlayers] = useState<string[]>(positions.filter((p) => p !== position));
+  const [foldedPlayers, setFoldedPlayers] = useState<string[]>([]);
   const [userHasActed, setUserHasActed] = useState(false);
+  const [lastActionWasBet, setLastActionWasBet] = useState(false);
 
   useEffect(() => {
-    let newDeck = generateDeck();
-    const [userCards, d1] = drawCards([...newDeck], 4);
-    newDeck = d1;
+    // Deal cards on load
+    let d = [...deck];
+    let cards: string[];
+    [cards, d] = dealCards(d, 4);
+    setHoleCards(cards);
 
-    const bots: Player[] = positions.filter((p) => p !== position).map((pos) => {
-      const [cards, d] = drawCards(newDeck, 4);
-      newDeck = d;
-      return { position: pos, cards, hasFolded: false };
-    });
+    [cards, d] = dealCards(d, 5);
+    setBoard1(cards);
 
-    const [b1, d2] = drawCards(newDeck, 5);
-    const [b2, d3] = drawCards(d2, 5);
+    [cards, d] = dealCards(d, 5);
+    setBoard2(cards);
 
-    setHoleCards(userCards);
-    setDeck(d3);
-    setBoard1(b1);
-    setBoard2(b2);
-    setPlayers(bots);
+    setDeck(d);
   }, []);
 
   const handleUserAction = (action: 'check' | 'bet') => {
     setUserHasActed(true);
-    if (action === 'bet') {
-      const updatedPlayers = players.map((p) => {
+    setLastActionWasBet(action === 'bet');
+  };
+
+  const simulateBotActions = () => {
+    if (!lastActionWasBet) return;
+
+    setActivePlayers((prevActive) => {
+      const remaining = [];
+      const newFolded = [...foldedPlayers];
+
+      for (let pos of prevActive) {
         if (Math.random() < 0.3) {
-          return { ...p, hasFolded: true };
+          newFolded.push(pos);
+        } else {
+          remaining.push(pos);
         }
-        return p;
-      });
-      setPlayers(updatedPlayers);
-    }
+      }
+
+      setFoldedPlayers(newFolded);
+      return remaining;
+    });
   };
 
   useEffect(() => {
     if (userHasActed && street !== 'showdown') {
+      if (lastActionWasBet) simulateBotActions();
+
       const delay = 1000;
       setTimeout(() => {
         if (street === 'flop') setStreet('turn');
         else if (street === 'turn') setStreet('river');
-        else setStreet('showdown');
+        else if (street === 'river') setStreet('showdown');
         setUserHasActed(false);
+        setLastActionWasBet(false);
       }, delay);
     }
   }, [userHasActed]);
@@ -155,8 +165,8 @@ export default function GameScreen({ position }: { position: string }) {
 
       {street !== 'flop' && (
         <div className="mt-6 text-lg">
-          <p>Players Remaining: {players.filter((p) => !p.hasFolded).length + 1}</p>
-          <p>Folded: {players.filter((p) => p.hasFolded).map((p) => p.position).join(', ') || 'None'}</p>
+          <p>Players Remaining: {activePlayers.length + 1}</p>
+          <p>Folded: {foldedPlayers.join(', ') || 'None'}</p>
         </div>
       )}
 
